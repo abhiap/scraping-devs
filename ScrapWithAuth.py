@@ -4,6 +4,7 @@ import configparser
 
 from Extractor import Extractor
 from Exporter import Exporter
+from User import User
 
 
 class Scrapper:
@@ -108,43 +109,63 @@ class Scrapper:
             response = session_reqs.get(url, headers=headers)
             Extractor.extract_details(response, user)
             # fetch from hackerrank
-
+            hr_url = "https://www.hackerrank.com/rest/hackers/{0}/recent_challenges?limit=5" \
+                     "&cursor=&response_version=v2".format(user.get("username"))
+            self.fetch_hackerrank_data(hr_url, user)
             # fetch from hackerearth
         return users
 
+    def fetch_hackerrank_data(self, url, user):
+        response = session_reqs.get(url)
+        print(response.content)
+        data = response.json()
+        print(data)
+        i = len(data['models'])
+        print(i)
+        user.set("Challenges submitted", i)
+        # print(len(data.models))
+
+    def run(self):
+        scrapper.init()
+
+        # 1 login and get user_session
+        user_session_key = scrapper.login()
+
+        # 2 set headers, cookies
+        jar = requests.cookies.RequestsCookieJar()
+        # jar.set('logged_in', 'yes', domain='.github.com', path='/')
+        jar.set('user_session', user_session_key, domain='.github.com', path='/')
+        # jar.set('__Host-user_session_same_site', '3deRNJUKRxtZm5o5qOQmmNsGShS-moSJNFfA-6l4eHABWHre', domain='.github.com', path='/')
+        # jar.set('dotcom_user', 'abhiap', domain='.github.com', path='/')
+        headers = {
+            'Referer': scrapper.SEARCH_URL,
+            'Cache-Control': "no-cache"
+        }
+
+        # 3 get no of records, then call search multiple times to extract details
+        # pages = getStat(source_page_1)
+        # response = session_reqs.get(source_page, cookies=jar, headers=headers)
+
+        # 4 extract mail id, username of each user
+        users = scrapper.fetch_data(scrapper.BASE_URL, scrapper.SEARCH_URL, jar, headers)
+
+        # 5 extract details such as no. of repositories, stars etc. of each user
+        # users = scrapper.enrich_data(users, scrapper.BASE_URL, jar, headers)
+
+        # export data to file
+        Exporter.write_to_csv(users)
+
+        result = session_reqs.get(scrapper.LOGOUT_URL)
+        print(result)
+
 
 if __name__ == '__main__':
-    scrapper = Scrapper()
-    scrapper.init()
-
     session_reqs = requests.session()
+    scrapper = Scrapper()
+    # scrapper.run()
 
-    # 1 login and get user_session
-    user_session_key = scrapper.login()
+    hr_url = "https://www.hackerrank.com/rest/hackers/abhiarunpatil/recent_challenges?limit=100" \
+             "&cursor=&response_version=v2"
+    user = User()
+    scrapper.fetch_hackerrank_data(hr_url, user)
 
-    # 2 set headers, cookies
-    jar = requests.cookies.RequestsCookieJar()
-    # jar.set('logged_in', 'yes', domain='.github.com', path='/')
-    jar.set('user_session', user_session_key, domain='.github.com', path='/')
-    # jar.set('__Host-user_session_same_site', '3deRNJUKRxtZm5o5qOQmmNsGShS-moSJNFfA-6l4eHABWHre', domain='.github.com', path='/')
-    # jar.set('dotcom_user', 'abhiap', domain='.github.com', path='/')
-    headers = {
-        'Referer': scrapper.SEARCH_URL,
-        'Cache-Control': "no-cache"
-    }
-
-    # 3 get no of records, then call search multiple times to extract details
-    # pages = getStat(source_page_1)
-    # response = session_reqs.get(source_page, cookies=jar, headers=headers)
-
-    # 4 extract mail id, username of each user
-    users = scrapper.fetch_data(scrapper.BASE_URL, scrapper.SEARCH_URL, jar, headers)
-
-    # 5 extract details such as no. of repositories, stars etc. of each user
-    # users = scrapper.enrich_data(users, scrapper.BASE_URL, jar, headers)
-
-    # export data to file
-    Exporter.write_to_csv(users)
-
-    result = session_reqs.get(scrapper.LOGOUT_URL)
-    print(result)

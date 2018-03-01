@@ -17,7 +17,8 @@ class Exporter:
         print(filename)
 
         with open(filename, "w", newline='') as csvFile:
-            fields = ['Id', 'Name', 'Username', 'Email', 'Repositories', 'Stars', 'Followers', 'Following']
+            # fields = ['Id', 'Name', 'Username', 'Email', 'Repositories', 'Stars', 'Followers', 'Following']
+            fields = records[0].variables.keys()
             writer = csv.DictWriter(csvFile, fieldnames=fields)
             writer.writeheader()
             index = 0

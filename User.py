@@ -23,6 +23,7 @@ def main():
     user.set('email', "ab@cd.com")
     print(user)
     print(user.variables)
+    print(user.variables.keys())
     print(user.get("username"), user.get('name'), user.get("email"))
 
 
