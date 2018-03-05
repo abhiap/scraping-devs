@@ -21,6 +21,8 @@ class Scrapper:
     SESSION_URL = ""
     SEARCH_URL = 'https://github.com/search?l=Java&o=desc&q=location%3APune&ref=advsearch&s=repositories&type=Users'
     # l=Java&q=abhi&type=Users&o=desc&s=repositories&location=Pune'
+    HR_CHALLENGES_URL = ""
+    HR_SUBMISSIONS_URL = ""
     USERNAME = ""
     PASSWORD = ""
 
@@ -33,6 +35,8 @@ class Scrapper:
         self.SESSION_URL = config['DEFAULT']['gh_session_url']
         # SEARCH_URL = config['DEFAULT']['gh_search_url']
         # l=Java&q=abhi&type=Users&o=desc&s=repositories&location=Pune'
+        self.HR_CHALLENGES_URL = config['DEFAULT']['hr_challenges_url']
+        self.HR_SUBMISSIONS_URL = config['DEFAULT']['hr_submissions_url']
         self.USERNAME = config['DEFAULT']['gh_username']
         self.PASSWORD = config['DEFAULT']['gh_pw']
 
@@ -63,9 +67,9 @@ class Scrapper:
         # print(user_session_key)
         return user_session_key
 
-    def fetch_data(self, base_url, source_page, jar, headers):
+    def fetch_data(self, jar, headers):
         # get no of records, then call search multiple times to extract details
-        response = session_reqs.get(source_page, cookies=jar, headers=headers)
+        response = session_reqs.get(self.SEARCH_URL, cookies=jar, headers=headers)
 
         page = response.text
         tree = html.fromstring(page)
@@ -88,48 +92,64 @@ class Scrapper:
             if i == 1:
                 pass
             else:
-                source_page = source_page.__add__("&p=" + str(i))
-                print(source_page)
-                response = session_reqs.get(source_page, cookies=jar, headers=headers)
+                self.SEARCH_URL = self.SEARCH_URL.__add__("&p=" + str(i))
+                print(self.SEARCH_URL)
+                response = session_reqs.get(self.SEARCH_URL, cookies=jar, headers=headers)
                 # Extractor.extract(response, users)
 
             temp_users = Extractor.extract(response)
             # extract details such as no. of repositories, stars etc. of each user
-            self.enrich_data(temp_users, base_url, jar, headers)
+            self.enrich_data(temp_users, jar, headers)
             users.extend(temp_users)
 
         return users
 
-    def enrich_data(self, users, base_url, jar, headers):
+    def enrich_data(self, users, jar, headers):
         for user in users:
             print(user.variables)
-            url = base_url.__add__(user.get("Username"))
+            url = self.BASE_URL.__add__(user.get("Username"))
             print("user url: ", url)
             # response = session_reqs.get(url, cookies=jar, headers=headers)
             response = session_reqs.get(url, headers=headers)
             Extractor.extract_details(response, user)
             # fetch from hackerrank
-            hr_url = "https://www.hackerrank.com/rest/hackers/{0}/recent_challenges?limit=5" \
-                     "&cursor=&response_version=v2".format(user.get("username"))
-            self.fetch_hackerrank_data(hr_url, user)
+            self.fetch_hackerrank_data(user)
             # fetch from hackerearth
         return users
 
-    def fetch_hackerrank_data(self, url, user):
+    def fetch_hackerrank_data(self, user):
+        url = self.HR_CHALLENGES_URL.format(user.get("Username"))
         response = session_reqs.get(url)
-        print(response.content)
-        data = response.json()
-        print(data)
-        i = len(data['models'])
+        print("hr challenges url: ", url)
+        i = 0
+        if response.ok:
+            print(response.content)
+            data = response.json()
+            print(data)
+            i = len(data['models'])
+
         print(i)
         user.set("Challenges submitted", i)
+
+        url = self.HR_SUBMISSIONS_URL.format(user.get("Username"))
+        response = session_reqs.get(url)
+        print("hr submissions url: ", url)
+        i = 0
+        if response.ok:
+            print(response.content)
+            data = response.json()
+            # print(sum(data.values()))
+            for s in data.values():
+                i += int(s)
+            print("sum: ", i)
         # print(len(data.models))
+        user.set("Total submissions", i)
 
     def run(self):
-        scrapper.init()
+        # self.init()
 
         # 1 login and get user_session
-        user_session_key = scrapper.login()
+        user_session_key = self.login()
 
         # 2 set headers, cookies
         jar = requests.cookies.RequestsCookieJar()
@@ -138,7 +158,7 @@ class Scrapper:
         # jar.set('__Host-user_session_same_site', '3deRNJUKRxtZm5o5qOQmmNsGShS-moSJNFfA-6l4eHABWHre', domain='.github.com', path='/')
         # jar.set('dotcom_user', 'abhiap', domain='.github.com', path='/')
         headers = {
-            'Referer': scrapper.SEARCH_URL,
+            'Referer': self.SEARCH_URL,
             'Cache-Control': "no-cache"
         }
 
@@ -147,7 +167,7 @@ class Scrapper:
         # response = session_reqs.get(source_page, cookies=jar, headers=headers)
 
         # 4 extract mail id, username of each user
-        users = scrapper.fetch_data(scrapper.BASE_URL, scrapper.SEARCH_URL, jar, headers)
+        users = self.fetch_data(jar, headers)
 
         # 5 extract details such as no. of repositories, stars etc. of each user
         # users = scrapper.enrich_data(users, scrapper.BASE_URL, jar, headers)
@@ -155,17 +175,20 @@ class Scrapper:
         # export data to file
         Exporter.write_to_csv(users)
 
-        result = session_reqs.get(scrapper.LOGOUT_URL)
+        result = session_reqs.get(self.LOGOUT_URL)
         print(result)
 
 
 if __name__ == '__main__':
     session_reqs = requests.session()
     scrapper = Scrapper()
-    # scrapper.run()
+    scrapper.init()
+    scrapper.run()
 
     hr_url = "https://www.hackerrank.com/rest/hackers/abhiarunpatil/recent_challenges?limit=100" \
              "&cursor=&response_version=v2"
     user = User()
-    scrapper.fetch_hackerrank_data(hr_url, user)
+    user.set('Username', '/abhiarunpatil')
+    scrapper.fetch_hackerrank_data(user)
+    print(user.variables)
 
