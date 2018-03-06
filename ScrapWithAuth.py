@@ -1,8 +1,9 @@
 import requests
 from lxml import html
 import configparser
+import datetime
 
-from Extractor import Extractor
+from GitHubExtractor import GitHubExtractor
 from CSVExporter import CSVExporter
 from User import User
 
@@ -23,10 +24,15 @@ class Scrapper:
     # l=Java&q=abhi&type=Users&o=desc&s=repositories&location=Pune'
     HR_CHALLENGES_URL = ""
     HR_SUBMISSIONS_URL = ""
+    EXPORT_FOLDER_PATH = ""
     USERNAME = ""
     PASSWORD = ""
 
-    def init(self):
+    gh_extractor, csv_exporter = None, None
+
+    def __init__(self, extractor, exporter):
+        self.extractor = extractor
+        self.exporter = exporter
         config = configparser.ConfigParser()
         config.read('config.ini')
         self.BASE_URL = config['DEFAULT']['base_url']
@@ -37,6 +43,7 @@ class Scrapper:
         # l=Java&q=abhi&type=Users&o=desc&s=repositories&location=Pune'
         self.HR_CHALLENGES_URL = config['DEFAULT']['hr_challenges_url']
         self.HR_SUBMISSIONS_URL = config['DEFAULT']['hr_submissions_url']
+        self.EXPORT_FOLDER_PATH = config['DEFAULT']['export_folder_path']
         self.USERNAME = config['DEFAULT']['gh_username']
         self.PASSWORD = config['DEFAULT']['gh_pw']
 
@@ -86,7 +93,6 @@ class Scrapper:
             print("No of pages: ", user_pages)
         # print(user_count_ele.text_content())
         users = []
-        extractor = Extractor()
         for i in range(1, 3):
             print("PAGE " + str(i))
             if i == 1:
@@ -97,28 +103,31 @@ class Scrapper:
                 response = session_reqs.get(self.SEARCH_URL, cookies=jar, headers=headers)
                 # Extractor.extract(response, users)
 
-            temp_users = Extractor.extract(response)
+            temp_users = self.extractor.extract(response)
             # extract details such as no. of repositories, stars etc. of each user
-            self.enrich_data(temp_users, jar, headers)
+            self.enrich_data(temp_users)
             users.extend(temp_users)
 
         return users
 
-    def enrich_data(self, users, jar, headers):
+    def enrich_data(self, users):
         for user in users:
             print(user.variables)
             url = self.BASE_URL.__add__(user.get("Username"))
             print("user url: ", url)
             # response = session_reqs.get(url, cookies=jar, headers=headers)
-            response = session_reqs.get(url, headers=headers)
-            Extractor.extract_details(response, user)
+            response = session_reqs.get(url)
+            details = self.extractor.extract_details(response)
+            user.variables.update(details)
             # fetch from hackerrank
-            self.fetch_hackerrank_data(user)
+            details = self.fetch_hackerrank_data(user.get("Username"))
+            user.variables.update(details)
             # fetch from hackerearth
         return users
 
-    def fetch_hackerrank_data(self, user):
-        url = self.HR_CHALLENGES_URL.format(user.get("Username"))
+    def fetch_hackerrank_data(self, username):
+        attributes = {}
+        url = self.HR_CHALLENGES_URL.format(username)
         response = session_reqs.get(url)
         print("hr challenges url: ", url)
         i = 0
@@ -129,9 +138,10 @@ class Scrapper:
             i = len(data['models'])
 
         print(i)
-        user.set("Challenges submitted", i)
+        # user.set("Challenges submitted", i)
+        attributes["Challenges submitted"] = i
 
-        url = self.HR_SUBMISSIONS_URL.format(user.get("Username"))
+        url = self.HR_SUBMISSIONS_URL.format(username)
         response = session_reqs.get(url)
         print("hr submissions url: ", url)
         i = 0
@@ -143,7 +153,10 @@ class Scrapper:
                 i += int(s)
             print("sum: ", i)
         # print(len(data.models))
-        user.set("Total submissions", i)
+        # user.set("Total submissions", i)
+        attributes["Total submissions"] = i
+
+        return attributes
 
     def run(self):
         # self.init()
@@ -173,7 +186,14 @@ class Scrapper:
         # users = scrapper.enrich_data(users, scrapper.BASE_URL, jar, headers)
 
         # export data to file
-        CSVExporter.write(users)
+        path = self.EXPORT_FOLDER_PATH
+        # print(path)
+        now = datetime.datetime.now()
+        str = now.strftime("%Y-%m-%d_%H%M")
+        filename = "{}\{}_{}.csv".format(path, "gh_users", str)
+        print("writing data to:")
+        print(filename)
+        self.exporter.write(records=users, filename=filename)
 
         result = session_reqs.get(self.LOGOUT_URL)
         print(result)
@@ -181,14 +201,25 @@ class Scrapper:
 
 if __name__ == '__main__':
     session_reqs = requests.session()
-    scrapper = Scrapper()
-    scrapper.init()
+    gh_extractor = GitHubExtractor()
+    csv_exporter = CSVExporter
+    scrapper = Scrapper(gh_extractor, csv_exporter)
+
     scrapper.run()
 
-    hr_url = "https://www.hackerrank.com/rest/hackers/abhiarunpatil/recent_challenges?limit=100" \
-             "&cursor=&response_version=v2"
-    user = User()
-    user.set('Username', '/abhiarunpatil')
-    scrapper.fetch_hackerrank_data(user)
-    print(user.variables)
+    # p = "C:\\Users\\abhijit.patil\\PycharmProjects"
+    # print(p)
+    # now = datetime.datetime.now()
+    # str = now.strftime("%Y-%m-%d_%H%M")
+    # name = "{}\{}_{}.csv".format(p, "gh_users", str)
+    # print(name)
+
+    # hr_url = "https://www.hackerrank.com/rest/hackers/abhiarunpatil/recent_challenges?limit=100" \
+    #          "&cursor=&response_version=v2"
+    # user = User()
+    # user.set('Username', '/abhiarunpatil')
+    # users = [user]
+    # scrapper.enrich_data(users)
+    # # scrapper.fetch_hackerrank_data(user)
+    # print(user.variables)
 

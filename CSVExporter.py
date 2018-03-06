@@ -1,19 +1,12 @@
 import csv
-import configparser
 
-from User import User
+from Exporter import Exporter
 
 
-class CSVExporter:
+class CSVExporter(Exporter):
 
-    @staticmethod
-    def write(records):
+    def write(records, filename):
         print("Writing records to csv", len(records))
-        config = configparser.ConfigParser()
-        config.read('config.ini')
-        filename = config['DEFAULT']['export_folder_path']
-        print(filename)
-        filename = filename.__add__("gh_users.csv")
         print(filename)
 
         with open(filename, "w", newline='') as csvFile:
@@ -29,9 +22,16 @@ class CSVExporter:
 
 
 if __name__ == '__main__':
+    from User import User
     user = User()
     user.set('username', 'Abhi2@gh')
     user.set('name', 'Abhijit2')
     user.set('email', "ab2@cd.com")
     users = [user, user]
-    CSVExporter.write(users)
+    p = "C:\\Users\\abhijit.patil\\PycharmProjects"
+    # print(p)
+    # now = datetime.datetime.now()
+    # str = now.strftime("%Y-%m-%d_%H%M")
+    filename = "{}\{}_{}.csv".format(p, "gh_users", "")
+    exporter = CSVExporter
+    exporter.write(records=users, filename=filename)

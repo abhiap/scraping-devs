@@ -18,13 +18,13 @@ class User(object):
 
 def main():
     user = User()
-    user.set('username', 'Abhi2@gh')
-    user.set('name', 'Abhijit')
-    user.set('email', "ab@cd.com")
+    user.set('Username', 'Abhi2@gh')
+    user.set('Name', 'Abhijit')
+    user.set('Email', "ab@cd.com")
     print(user)
     print(user.variables)
     print(user.variables.keys())
-    print(user.get("username"), user.get('name'), user.get("email"))
+    print(user.get("Username"), user.get('Name'), user.get("Email"))
 
 
 if __name__ == '__main__': main()
