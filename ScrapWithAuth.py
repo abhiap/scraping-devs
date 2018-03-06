@@ -3,7 +3,7 @@ from lxml import html
 import configparser
 
 from Extractor import Extractor
-from Exporter import Exporter
+from CSVExporter import CSVExporter
 from User import User
 
 
@@ -173,7 +173,7 @@ class Scrapper:
         # users = scrapper.enrich_data(users, scrapper.BASE_URL, jar, headers)
 
         # export data to file
-        Exporter.write_to_csv(users)
+        CSVExporter.write(users)
 
         result = session_reqs.get(self.LOGOUT_URL)
         print(result)
