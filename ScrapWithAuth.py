@@ -53,25 +53,36 @@ class Scrapper:
         result = session_reqs.get(self.LOGIN_URL)
         tree = html.fromstring(result.text)
         authenticity_token = list(set(tree.xpath("//input[@name='authenticity_token']/@value")))[0]
-        # print(authenticity_token)
-        # print(result.headers)
+        print(authenticity_token)
+        print(result.headers)
         session_key = result.cookies["_gh_sess"]
-        # print(session_key)
+        print(session_key)
 
         jar = requests.cookies.RequestsCookieJar()
         jar.set('_gh_sess', session_key, domain='.github.com', path='/')
 
+        login = input("Github login id: ")
+        pw = input("password: ")
         payload = {
-            "login": self.USERNAME,
-            "password": self.PASSWORD,
+            "login": login, #self.USERNAME,
+            "password": pw, #self.PASSWORD,
             "commit": "Sign in",
             "authenticity_token": authenticity_token
         }
 
         # Perform login
         result = session_reqs.post(self.SESSION_URL, data=payload, cookies=jar, headers=dict(referer=self.SESSION_URL))
+        print(result.headers)
+        set_cookies = result.headers["Set-Cookie"].split(';')
+        print(set_cookies)
+        print(type(set_cookies))
+        user_session_key = ""
+        li = list(set_cookies)
+        # if li.:
         user_session_key = result.cookies["user_session"]
         # print(user_session_key)
+        result = session_reqs.get(self.LOGOUT_URL)
+        print(result)
         return user_session_key
 
     def fetch_data(self, jar, headers):
@@ -206,6 +217,8 @@ if __name__ == '__main__':
     scrapper = Scrapper(gh_extractor, csv_exporter)
 
     scrapper.run()
+
+    # scrapper.login()
 
     # p = "C:\\Users\\abhijit.patil\\PycharmProjects"
     # print(p)
